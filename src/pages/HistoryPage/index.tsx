@@ -9,42 +9,27 @@ import { useTaskContext } from "../../contexts/TaskContext/useTaskContext";
 import { formatDate } from "../../utils/formatDate";
 import { getTaskStatus } from "../../utils/getTaskStatus";
 import { sortTasks, type SortTasksOptions } from "../../utils/sortTasks";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TaskActionTypes } from "../../contexts/TaskContext/taskActions";
 import { showMessage } from "../../adapters/showMessage";
 
 export function HistoryPage() {
   const { state, dispatch } = useTaskContext();
-  const [confirmClearHistory, setConfirmClearHistory] = useState(false);
   const hasTasks = state.tasks.length > 0;
+  const [sortField, setSortField] =
+    useState<SortTasksOptions["field"]>("startDate");
+  const [sortDirection, setSortDirection] =
+    useState<SortTasksOptions["direction"]>("desc");
 
-  const [sortTasksOptions, setSortTasksOptions] = useState<SortTasksOptions>(
-    () => {
-      return {
-        tasks: sortTasks({ tasks: state.tasks }),
-        field: "startDate",
-        direction: "desc",
-      };
-    },
-  );
-
-  useEffect(() => {
-    setSortTasksOptions((prevState) => ({
-      ...prevState,
-      tasks: sortTasks({
+  const sortedTasks = useMemo(
+    () =>
+      sortTasks({
         tasks: state.tasks,
-        direction: prevState.direction,
-        field: prevState.field,
+        direction: sortDirection,
+        field: sortField,
       }),
-    }));
-  }, [state.tasks]);
-
-  useEffect(() => {
-    if (!confirmClearHistory) return;
-    setConfirmClearHistory(false);
-
-    dispatch({ type: TaskActionTypes.RESET_STATE });
-  }, [confirmClearHistory, dispatch]);
+    [sortDirection, sortField, state.tasks],
+  );
 
   useEffect(() => {
     return () => {
@@ -57,22 +42,16 @@ export function HistoryPage() {
   }, []);
 
   function handleSortTasks({ field }: Pick<SortTasksOptions, "field">) {
-    const newDirection = sortTasksOptions.direction === "desc" ? "asc" : "desc";
-    setSortTasksOptions({
-      tasks: sortTasks({
-        direction: newDirection,
-        tasks: sortTasksOptions.tasks,
-        field,
-      }),
-      direction: newDirection,
-      field,
-    });
+    const newDirection = sortDirection === "desc" ? "asc" : "desc";
+    setSortDirection(newDirection);
+    setSortField(field);
   }
 
   function handleResetHistory() {
     showMessage.dismiss();
     showMessage.confirm("Tem certeza que quer excluir?", (confirmation) => {
-      setConfirmClearHistory(confirmation);
+      if (!confirmation) return;
+      dispatch({ type: TaskActionTypes.RESET_STATE });
     });
   }
 
@@ -125,7 +104,7 @@ export function HistoryPage() {
               </thead>
 
               <tbody>
-                {sortTasksOptions.tasks.map((task) => {
+                {sortedTasks.map((task) => {
                   const taskTypeDictionary = {
                     workTime: "Foco",
                     shortBreakTime: "Descanso curto",

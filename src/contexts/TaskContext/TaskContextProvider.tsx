@@ -27,43 +27,43 @@ export function TaskContextProvider({ children }: TaskContextProviderProps) {
     };
   });
 
-  let playBeepRef = useRef<() => void | null>(null);
+  const playBeepRef = useRef<() => void | null>(null);
 
   const worker = TimerWorkerManager.getInstance();
 
-  worker.onmessage((e) => {
-    const countDownSeconds = e.data;
+  useEffect(() => {
+    worker.onmessage((e) => {
+      const countDownSeconds = e.data;
 
-    if (countDownSeconds <= 0) {
-      if (playBeepRef.current) {
-        playBeepRef.current();
-        playBeepRef.current = null;
+      if (countDownSeconds <= 0) {
+        if (playBeepRef.current) {
+          playBeepRef.current();
+          playBeepRef.current = null;
+        }
+
+        dispatch({
+          type: TaskActionTypes.COMPLETE_TASK,
+        });
+        worker.terminate();
+      } else {
+        dispatch({
+          type: TaskActionTypes.COUNT_DOWN,
+          payload: { secondsRemaining: countDownSeconds },
+        });
       }
-
-      dispatch({
-        type: TaskActionTypes.COMPLETE_TASK,
-      });
-      worker.terminate();
-    } else {
-      dispatch({
-        type: TaskActionTypes.COUNT_DOWN,
-        payload: { secondsRemaining: countDownSeconds },
-      });
-    }
-  });
+    });
+  }, [dispatch, worker]);
 
   useEffect(() => {
     localStorage.setItem("state", JSON.stringify(state));
 
     if (!state.activeTask) {
       worker.terminate();
+      document.title = "Kronos Pomodoro";
+      return;
     }
 
-    if (!state.activeTask) {
-      document.title = "Kronos Pomodoro";
-    } else {
-      document.title = `${state.formattedSecondsRemaining} - ${state.activeTask.name}`;
-    }
+    document.title = `${state.formattedSecondsRemaining} - ${state.activeTask.name}`;
 
     worker.postMessage(state);
   }, [worker, state]);
